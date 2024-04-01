@@ -8,8 +8,8 @@ from PySide2.QtWebEngineWidgets import (QWebEngineView, QWebEngineProfile,
 from dataclasses import dataclass
 from typing import List, Optional
 import logging
-from yttv.yawebview.QtSingleApplication import QtSingleApplication
-from yttv.yawebview import sighandler
+from yawebview.QtSingleApplication import QtSingleApplication
+from yawebview import sighandler
 
 @dataclass
 class Options:

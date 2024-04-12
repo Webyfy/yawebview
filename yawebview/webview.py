@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from PySide2.QtCore import QEvent, Qt, QUrl
-from PySide2.QtGui import QGuiApplication, QIcon, QKeyEvent, QKeySequence, QPixmap
+from PySide2.QtGui import (
+    QGuiApplication,
+    QIcon,
+    QKeyEvent,
+    QKeySequence,
+    QPixmap,
+)
 from PySide2.QtWebEngineWidgets import (
     QWebEnginePage,
     QWebEngineProfile,
@@ -62,21 +68,30 @@ class Window:
 
 
 class WebEnginePage(QWebEnginePage):
-    WINDOW_CLOSE_ERROR = "Scripts may close only the windows that were opened by "
+    WINDOW_CLOSE_ERROR = (
+        "Scripts may close only the windows that were opened by "
+    )
 
     def __init__(self, profile, parent=None):
         super().__init__(profile, parent)
 
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         if (
-            level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel
+            level
+            == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel
         ) and WebEnginePage.WINDOW_CLOSE_ERROR.casefold() in message.casefold():
             self.windowCloseRequested.emit()
             return
 
-        if level == QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel:
+        if (
+            level
+            == QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel
+        ):
             logging.info(f"js: {message}")
-        elif level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel:
+        elif (
+            level
+            == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel
+        ):
             logging.warn(f"js: {message}")
         else:  # QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel
             logging.error(f"js: {message}")
@@ -100,7 +115,9 @@ class BrowserView(QMainWindow):
                 continue
             shortcut = QShortcut(src_q_key_seq, self)
             # Hacky solution, but works for my requirements
-            shortcut.activated.connect(lambda: self.fake_key_press(dest_q_key_seq[0]))
+            shortcut.activated.connect(
+                lambda: self.fake_key_press(dest_q_key_seq[0])
+            )
 
         self.webEngineView = QWebEngineView(self)
         profile = QWebEngineProfile.defaultProfile()
@@ -125,7 +142,9 @@ class BrowserView(QMainWindow):
         self.setWindowTitle(window.title)
         if window.icon_set:
             self.set_icon(window.icon_name, window.fallback_icon_files)
-        self.resize(QGuiApplication.primaryScreen().availableGeometry().size() * 0.7)
+        self.resize(
+            QGuiApplication.primaryScreen().availableGeometry().size() * 0.7
+        )
         self.center()
 
     # shamelessly copy/pasted from qute browser

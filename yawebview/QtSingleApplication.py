@@ -11,7 +11,9 @@ from PySide2.QtWidgets import QApplication, QMainWindow
 
 def raise_window(window: QMainWindow):
     """Raise the given MainWindow object."""
-    window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
+    window.setWindowState(
+        window.windowState() & ~Qt.WindowState.WindowMinimized
+    )
     window.setWindowState(window.windowState() | Qt.WindowState.WindowActive)
     window.raise_()
     # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-69568

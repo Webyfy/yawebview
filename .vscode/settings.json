@@ -1,9 +1,10 @@
 {
     "[python]": {
         "editor.wordWrap": "wordWrapColumn",
-        "editor.wordWrapColumn": 88,
+        "editor.wordWrapColumn": 79,
         "editor.rulers": [
-            88
+            79
         ]
-    }
+    },
+    "black-formatter.args": ["--line-length", "79"],
 }

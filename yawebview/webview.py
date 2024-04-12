@@ -1,21 +1,28 @@
-import sys
-from PySide2.QtCore import QUrl, Qt, QEvent
-from PySide2.QtGui import QGuiApplication, QIcon, QPixmap, QKeySequence, QKeyEvent
-from PySide2.QtWidgets import (QApplication, QMainWindow, QShortcut)
-from PySide2.QtWebEngineWidgets import (QWebEngineView, QWebEngineProfile,
-                                        QWebEnginePage, QWebEngineSettings)
-
-from dataclasses import dataclass
-from typing import List, Optional
 import logging
-from yawebview.QtSingleApplication import QtSingleApplication
+import sys
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+
+from PySide2.QtCore import QEvent, Qt, QUrl
+from PySide2.QtGui import QGuiApplication, QIcon, QKeyEvent, QKeySequence, QPixmap
+from PySide2.QtWebEngineWidgets import (
+    QWebEnginePage,
+    QWebEngineProfile,
+    QWebEngineSettings,
+    QWebEngineView,
+)
+from PySide2.QtWidgets import QApplication, QMainWindow, QShortcut
+
 from yawebview import sighandler
+from yawebview.QtSingleApplication import QtSingleApplication
+
 
 @dataclass
 class Options:
     user_agent: Optional[str] = None
     single_instance_mode: bool = False
     app_id: str = ""
+
 
 class Window:
     _instance = None
@@ -25,9 +32,15 @@ class Window:
             cls._instance = super(Window, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, title: str, url: str, scrollbars: bool = True,
-                 context_menu: bool = True, title_from_page: bool = True,
-                 allow_scripts_to_close:bool = False):
+    def __init__(
+        self,
+        title: str,
+        url: str,
+        scrollbars: bool = True,
+        context_menu: bool = True,
+        title_from_page: bool = True,
+        allow_scripts_to_close: bool = False,
+    ):
         self.title = title
         self.url = url
         self.show_scrollbars = scrollbars
@@ -37,7 +50,7 @@ class Window:
         # self.height
         self.allow_scripts_to_close = allow_scripts_to_close
         self.icon_set = False
-        self.keymappings : Dict[str, str] = {}
+        self.keymappings: Dict[str, str] = {}
 
     def set_icon(self, icon_name: str, fallback_icon_files: List[str] = []):
         self.icon_set = True
@@ -47,24 +60,27 @@ class Window:
     def add_keymapping(self, src_key_sequence: str, dest_key_sequence: str):
         self.keymappings[src_key_sequence] = dest_key_sequence
 
+
 class WebEnginePage(QWebEnginePage):
     WINDOW_CLOSE_ERROR = "Scripts may close only the windows that were opened by "
 
     def __init__(self, profile, parent=None):
         super().__init__(profile, parent)
-    
-    def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):  
-        if (level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel) and \
-            WebEnginePage.WINDOW_CLOSE_ERROR.casefold() in message.casefold():
+
+    def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+        if (
+            level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel
+        ) and WebEnginePage.WINDOW_CLOSE_ERROR.casefold() in message.casefold():
             self.windowCloseRequested.emit()
             return
 
-        if (level == QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel):
+        if level == QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel:
             logging.info(f"js: {message}")
-        elif (level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel):
+        elif level == QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel:
             logging.warn(f"js: {message}")
-        else: # QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel
+        else:  # QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel
             logging.error(f"js: {message}")
+
 
 class BrowserView(QMainWindow):
     def __init__(self, window: Window, user_agent: Optional[str] = None):
@@ -78,7 +94,7 @@ class BrowserView(QMainWindow):
                 logging.warning(f"Invalid key sequence '{src_seq}'")
                 continue
             dest_seq = window.keymappings[src_seq]
-            dest_q_key_seq =QKeySequence(dest_seq)
+            dest_q_key_seq = QKeySequence(dest_seq)
             if dest_q_key_seq.toString() == "":
                 logging.warning(f"Invalid key sequence '{dest_seq}'")
                 continue
@@ -90,37 +106,37 @@ class BrowserView(QMainWindow):
         profile = QWebEngineProfile.defaultProfile()
         if user_agent:
             profile.setHttpUserAgent(user_agent)
-        page = WebEnginePage(profile=profile,
-                             parent=self.webEngineView)
+        page = WebEnginePage(profile=profile, parent=self.webEngineView)
         if window.set_title_from_page:
             page.titleChanged.connect(self.setWindowTitle)
         if window.allow_scripts_to_close:
             page.windowCloseRequested.connect(self.close)
         self.webEngineView.setPage(page)
-        
+
         self.webEngineView.settings().setAttribute(
-            QWebEngineSettings.ShowScrollBars, window.show_scrollbars)
+            QWebEngineSettings.ShowScrollBars, window.show_scrollbars
+        )
         if window.disable_context_menu:
             self.webEngineView.setContextMenuPolicy(Qt.NoContextMenu)
 
         self.webEngineView.setUrl(QUrl(window.url))
         self.setCentralWidget(self.webEngineView)
-        
+
         self.setWindowTitle(window.title)
         if window.icon_set:
             self.set_icon(window.icon_name, window.fallback_icon_files)
-        self.resize(QGuiApplication.primaryScreen().
-                    availableGeometry().size() * 0.7)
+        self.resize(QGuiApplication.primaryScreen().availableGeometry().size() * 0.7)
         self.center()
 
     # shamelessly copy/pasted from qute browser
-    def fake_key_press(self,
-                       key: Qt.Key,
-                       modifier: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> None:
+    def fake_key_press(
+        self,
+        key: Qt.Key,
+        modifier: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier,
+    ) -> None:
         """Send a fake key event."""
         press_evt = QKeyEvent(QEvent.Type.KeyPress, key, modifier, 0, 0, 0)
-        release_evt = QKeyEvent(QEvent.Type.KeyRelease, key, modifier,
-                                0, 0, 0)
+        release_evt = QKeyEvent(QEvent.Type.KeyRelease, key, modifier, 0, 0, 0)
         self.send_event(press_evt)
         self.send_event(release_evt)
 
@@ -132,9 +148,8 @@ class BrowserView(QMainWindow):
         """
         # This only gives us some mild protection against re-using events, but
         # it's certainly better than a segfault.
-        if getattr(evt, 'posted', False):
-            logging.error("Can't re-use an event which was already "
-                                    "posted!")
+        if getattr(evt, "posted", False):
+            logging.error("Can't re-use an event which was already " "posted!")
             return
 
         recipient = self.webEngineView.focusProxy()
@@ -165,7 +180,7 @@ class BrowserView(QMainWindow):
 
 def start(options: Options = Options()):
     args = sys.argv
-    args.append('--disable-seccomp-filter-sandbox')
+    args.append("--disable-seccomp-filter-sandbox")
     if options.single_instance_mode:
         id = options.app_id
         if len(id) < 4:

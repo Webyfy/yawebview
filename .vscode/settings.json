@@ -1,0 +1,9 @@
+{
+    "[python]": {
+        "editor.wordWrap": "wordWrapColumn",
+        "editor.wordWrapColumn": 88,
+        "editor.rulers": [
+            88
+        ]
+    }
+}

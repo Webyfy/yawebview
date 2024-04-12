@@ -2,25 +2,30 @@
 # shamelessly copy/pasted from https://stackoverflow.com/a/12712362
 
 from PySide2 import QtCore
+from PySide2.QtCore import QCoreApplication, QEventLoop, Qt, QTextStream
+from PySide2.QtNetwork import QLocalServer, QLocalSocket
 from PySide2.QtWidgets import QApplication, QMainWindow
-from PySide2.QtNetwork import QLocalSocket, QLocalServer
-from PySide2.QtCore import QTextStream, Qt, QEventLoop, QCoreApplication
 
 # from https://github.com/qutebrowser/qutebrowser/blob/c073412b49002ff75bf67fac1c3e59560135a51b/qutebrowser/mainwindow/mainwindow.py#L70
-def raise_window(window:QMainWindow):
+
+
+def raise_window(window: QMainWindow):
     """Raise the given MainWindow object."""
     window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
     window.setWindowState(window.windowState() | Qt.WindowState.WindowActive)
     window.raise_()
     # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-69568
     QCoreApplication.processEvents(
-        QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers)
+        QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+        | QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers
+    )
 
     # if sip.isdeleted(window):
-        # Could be deleted by the events run above
-        # return
+    # Could be deleted by the events run above
+    #   return
 
     window.activateWindow()
+
 
 class QtSingleApplication(QApplication):
 
@@ -40,7 +45,7 @@ class QtSingleApplication(QApplication):
         if self._isRunning:
             # Yes, there is.
             self._outStream = QTextStream(self._outSocket)
-            self._outStream.setCodec('UTF-8')
+            self._outStream.setCodec("UTF-8")
         else:
             # No, there isn't.
             self._outSocket = None
@@ -60,7 +65,7 @@ class QtSingleApplication(QApplication):
     def activationWindow(self):
         return self._activationWindow
 
-    def setActivationWindow(self, activationWindow, activateOnMessage = True):
+    def setActivationWindow(self, activationWindow, activateOnMessage=True):
         self._activationWindow = activationWindow
         self._activateOnMessage = activateOnMessage
 
@@ -72,7 +77,7 @@ class QtSingleApplication(QApplication):
     def sendMessage(self, msg):
         if not self._outStream:
             return False
-        self._outStream << msg << '\n'
+        self._outStream << msg << "\n"
         self._outStream.flush()
         return self._outSocket.waitForBytesWritten()
 
@@ -83,7 +88,7 @@ class QtSingleApplication(QApplication):
         if not self._inSocket:
             return
         self._inStream = QTextStream(self._inSocket)
-        self._inStream.setCodec('UTF-8')
+        self._inStream.setCodec("UTF-8")
         self._inSocket.readyRead.connect(self._onReadyRead)
         if self._activateOnMessage:
             self.activateWindow()
@@ -91,5 +96,6 @@ class QtSingleApplication(QApplication):
     def _onReadyRead(self):
         while True:
             msg = self._inStream.readLine()
-            if not msg: break
+            if not msg:
+                break
             self.messageReceived.emit(msg)

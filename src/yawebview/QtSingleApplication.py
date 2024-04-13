@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # shamelessly copy/pasted from https://stackoverflow.com/a/12712362
 
+from typing import List
+
 from PySide2 import QtCore
 from PySide2.QtCore import QCoreApplication, QEventLoop, Qt, QTextStream
 from PySide2.QtNetwork import QLocalServer, QLocalSocket
@@ -33,10 +35,10 @@ class QtSingleApplication(QApplication):
 
     messageReceived = QtCore.Signal()
 
-    def __init__(self, id, args):
+    def __init__(self, id: str, args: List[str]):
         super().__init__(args)
         self._id = id
-        self._activationWindow = None
+        self._activationWindow: QMainWindow = None
         self._activateOnMessage = False
 
         # Is there another instance running?
@@ -67,7 +69,9 @@ class QtSingleApplication(QApplication):
     def activationWindow(self):
         return self._activationWindow
 
-    def setActivationWindow(self, activationWindow, activateOnMessage=True):
+    def setActivationWindow(
+        self, activationWindow: QMainWindow, activateOnMessage=True
+    ):
         self._activationWindow = activationWindow
         self._activateOnMessage = activateOnMessage
 

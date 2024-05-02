@@ -26,8 +26,10 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 dependencies = [
-    "PySide2"
 ]
+
+[project.optional-dependencies]
+pyside2 = ["PySide2"]
 
 [project.urls]
 Repository = "https://gitlab.com/webyfy/iot/e-gurukul/yawebview"

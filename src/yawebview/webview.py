@@ -3,7 +3,15 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from PySide2.QtCore import QEvent, Qt, QUrl
+from PySide2.QtCore import (
+    QDir,
+    QEvent,
+    QIODevice,
+    QSizeF,
+    Qt,
+    QTemporaryFile,
+    QUrl,
+)
 from PySide2.QtGui import (
     QGuiApplication,
     QIcon,
@@ -17,7 +25,7 @@ from PySide2.QtWebEngineWidgets import (
     QWebEngineSettings,
     QWebEngineView,
 )
-from PySide2.QtWidgets import QApplication, QMainWindow, QShortcut
+from PySide2.QtWidgets import QApplication, QMainWindow, QShortcut, QWidget
 
 from yawebview import sighandler
 from yawebview.QtSingleApplication import QtSingleApplication
@@ -46,6 +54,7 @@ class Window:
         context_menu: bool = True,
         title_from_page: bool = True,
         allow_scripts_to_close: bool = False,
+        freeze_on_focus_loss: bool = False,  # WIP
     ):
         self.title = title
         self.url = url
@@ -55,6 +64,7 @@ class Window:
         # self.width =
         # self.height
         self.allow_scripts_to_close = allow_scripts_to_close
+        self._freeze_on_focus_loss = freeze_on_focus_loss
         self.icon_set = False
         self.keymappings: Dict[str, str] = {}
 
@@ -100,6 +110,7 @@ class WebEnginePage(QWebEnginePage):
 class BrowserView(QMainWindow):
     def __init__(self, window: Window, user_agent: Optional[str] = None):
         super().__init__()
+        self._freeze_on_focus_loss = window._freeze_on_focus_loss
         self.initUI(window=window, user_agent=user_agent)
 
     def initUI(self, window: Window, user_agent: Optional[str]):
@@ -123,12 +134,18 @@ class BrowserView(QMainWindow):
         profile = QWebEngineProfile.defaultProfile()
         if user_agent:
             profile.setHttpUserAgent(user_agent)
-        page = WebEnginePage(profile=profile, parent=self.webEngineView)
+        self.page = WebEnginePage(profile=profile, parent=self.webEngineView)
         if window.set_title_from_page:
-            page.titleChanged.connect(self.setWindowTitle)
+            self.page.titleChanged.connect(self.setWindowTitle)
         if window.allow_scripts_to_close:
-            page.windowCloseRequested.connect(self.close)
-        self.webEngineView.setPage(page)
+            self.page.windowCloseRequested.connect(self.close)
+        self.webEngineView.setPage(self.page)
+        if self._freeze_on_focus_loss:
+            self.tempFile = QTemporaryFile(
+                QDir.tempPath() + QDir.separator() + "yttv_XXXXXX.png",
+                parent=self,
+            )
+            self.tempPage: QWebEnginePage = QWebEnginePage(profile)
 
         self.webEngineView.settings().setAttribute(
             QWebEngineSettings.ShowScrollBars, window.show_scrollbars
@@ -146,6 +163,41 @@ class BrowserView(QMainWindow):
             QGuiApplication.primaryScreen().availableGeometry().size() * 0.7
         )
         self.center()
+
+    def event(self, event: QEvent) -> bool:
+        # page switching hack is used since disabling page was not working
+        # and WebEngine Lifecycle state wont work on forground page
+        if (
+            self._freeze_on_focus_loss
+            and event.type() == QEvent.WindowActivate
+        ):
+            # Page Lifecycle API is supported only on Qt 5.14.0 or above
+            self.page.setLifecycleState(QWebEnginePage.LifecycleState.Active) 
+            self.webEngineView.setPage(self.page)
+            self.tempPage.setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
+        elif (
+            self._freeze_on_focus_loss
+            and event.type() == QEvent.WindowDeactivate
+        ):
+            content_dimensions: QSizeF = self.page.contentsSize()
+            width, height = (
+                content_dimensions.width(),
+                content_dimensions.height(),
+            )
+            pixmap = QPixmap(int(width), int(height))
+            v: QWidget = self.page.view()
+            v.render(pixmap)
+
+            self.tempFile.open(QIODevice.WriteOnly)
+            pixmap.save(self.tempFile)
+            self.tempFile.close()
+
+            self.tempPage.setUrl(QUrl.fromLocalFile(self.tempFile.fileName()))
+            self.tempPage.setLifecycleState(QWebEnginePage.LifecycleState.Active)
+            self.webEngineView.setPage(self.tempPage)
+            # Page Lifecycle API is supported only on Qt 5.14.0 or above
+            self.page.setLifecycleState(QWebEnginePage.LifecycleState.Frozen) 
+        return super().event(event)
 
     # shamelessly copy/pasted from qute browser
     def fake_key_press(

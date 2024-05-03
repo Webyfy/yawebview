@@ -3,6 +3,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from PySide2 import QtCore
 from PySide2.QtCore import (
     QDir,
     QEvent,
@@ -29,6 +30,10 @@ from PySide2.QtWidgets import QApplication, QMainWindow, QShortcut, QWidget
 
 from yawebview import sighandler
 from yawebview.QtSingleApplication import QtSingleApplication
+
+QT_MAJOR, QT_MINOR, QT_PATCH = tuple(
+    [int(part) for part in QtCore.__version__.split(".")]
+)
 
 
 @dataclass
@@ -165,16 +170,19 @@ class BrowserView(QMainWindow):
         self.center()
 
     def event(self, event: QEvent) -> bool:
-        # page switching hack is used since disabling page was not working
-        # and WebEngine Lifecycle state wont work on forground page
         if (
             self._freeze_on_focus_loss
             and event.type() == QEvent.WindowActivate
         ):
-            # Page Lifecycle API is supported only on Qt 5.14.0 or above
-            self.page.setLifecycleState(QWebEnginePage.LifecycleState.Active) 
             self.webEngineView.setPage(self.page)
-            self.tempPage.setLifecycleState(QWebEnginePage.LifecycleState.Discarded)
+            # Page Lifecycle API is supported only on Qt 5.14.0 or above
+            if QT_MINOR >= 14:
+                self.page.setLifecycleState(
+                    QWebEnginePage.LifecycleState.Active
+                )
+                self.tempPage.setLifecycleState(
+                    QWebEnginePage.LifecycleState.Discarded
+                )
         elif (
             self._freeze_on_focus_loss
             and event.type() == QEvent.WindowDeactivate
@@ -193,10 +201,15 @@ class BrowserView(QMainWindow):
             self.tempFile.close()
 
             self.tempPage.setUrl(QUrl.fromLocalFile(self.tempFile.fileName()))
-            self.tempPage.setLifecycleState(QWebEnginePage.LifecycleState.Active)
             self.webEngineView.setPage(self.tempPage)
             # Page Lifecycle API is supported only on Qt 5.14.0 or above
-            self.page.setLifecycleState(QWebEnginePage.LifecycleState.Frozen) 
+            if QT_MINOR >= 14:
+                self.tempPage.setLifecycleState(
+                    QWebEnginePage.LifecycleState.Active
+                )
+                self.page.setLifecycleState(
+                    QWebEnginePage.LifecycleState.Frozen
+                )
         return super().event(event)
 
     # shamelessly copy/pasted from qute browser
